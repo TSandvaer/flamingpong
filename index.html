@@ -228,13 +228,19 @@
         /* Mobile touch areas */
         .touch-area {
             position: absolute;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px dashed rgba(255, 255, 255, 0.3);
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid rgba(0, 212, 255, 0.5);
             border-radius: 10px;
             display: none;
             z-index: 100;
             user-select: none;
             touch-action: none;
+            box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.1);
+        }
+
+        .touch-area:active {
+            background: rgba(0, 212, 255, 0.4);
+            border-color: rgba(0, 212, 255, 0.8);
         }
 
         .touch-area-left {
@@ -262,17 +268,22 @@
         }
 
         /* Mobile responsive */
-        @media screen and (max-width: 1024px) and (orientation: landscape) {
+        @media screen and (max-height: 600px), screen and (max-width: 1024px) {
             body {
                 padding: 0;
                 margin: 0;
                 overflow: hidden;
                 -webkit-user-select: none;
                 -webkit-touch-callout: none;
+                position: fixed;
+                width: 100%;
+                height: 100%;
             }
 
             .game-container {
-                position: relative;
+                position: fixed;
+                top: 0;
+                left: 0;
                 width: 100vw;
                 height: 100vh;
                 display: flex;
@@ -281,70 +292,70 @@
                 align-items: center;
                 padding: 0;
                 overflow: hidden;
+                z-index: 1;
             }
 
             .score {
-                font-size: 36px;
-                margin: 5px 0;
-            }
-
-            .timer {
-                font-size: 18px;
+                font-size: clamp(24px, 5vw, 36px);
                 margin: 2px 0;
             }
 
+            .timer {
+                font-size: clamp(14px, 3vw, 18px);
+                margin: 1px 0;
+            }
+
             canvas {
-                max-width: calc(100vw - 280px);
-                max-height: calc(100vh - 120px);
-                width: auto;
-                height: auto;
+                width: calc(100vw - 200px);
+                height: calc(100vh - 80px);
+                max-width: calc(100vw - 200px);
+                max-height: calc(100vh - 80px);
             }
 
             .controls {
-                font-size: 12px;
-                margin: 5px 0;
+                font-size: clamp(10px, 2vw, 12px);
+                margin: 2px 0;
             }
 
             .touch-area {
-                display: block;
+                display: block !important;
+                position: fixed;
+            }
+
+            .touch-area-left {
+                left: 5px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 80px;
+                height: 60vh;
+                z-index: 100;
+            }
+
+            .touch-area-right {
+                right: 5px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 80px;
+                height: 60vh;
+                z-index: 100;
             }
 
             .touch-instructions {
-                display: block;
+                display: block !important;
+                font-size: clamp(10px, 2vw, 14px);
             }
 
             .speed-warning {
-                font-size: 32px;
-                padding: 20px;
+                font-size: clamp(24px, 6vw, 32px);
+                padding: 15px;
             }
 
             .warning-subtitle {
-                font-size: 18px;
-            }
-        }
-
-        @media screen and (max-width: 768px) and (orientation: landscape) {
-            .score {
-                font-size: 28px;
+                font-size: clamp(14px, 3vw, 18px);
             }
 
-            .timer {
-                font-size: 16px;
-            }
-
-            canvas {
-                max-width: calc(100vw - 240px);
-                max-height: calc(100vh - 100px);
-            }
-
-            .touch-area-left,
-            .touch-area-right {
-                width: 100px;
-                height: 250px;
-            }
-
-            .controls {
-                font-size: 10px;
+            .floating-patterns {
+                display: none;
             }
         }
     </style>
@@ -417,6 +428,14 @@
             rightY: 0
         };
 
+        // Mobile detection
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   window.innerWidth <= 1024 ||
+                   window.innerHeight <= 600 ||
+                   ('ontouchstart' in window);
+        }
+
         let flameParticles = [];
 
         const game = {
@@ -462,9 +481,13 @@
         // Touch event handlers
         function handleTouchStart(e, isLeft) {
             e.preventDefault();
-            const touch = e.touches[0];
+            e.stopPropagation();
+
+            const touch = e.touches[0] || e.changedTouches[0];
             const rect = (isLeft ? touchLeftEl : touchRightEl).getBoundingClientRect();
-            const relativeY = (touch.clientY - rect.top) / rect.height;
+            const relativeY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
+
+            console.log(`Touch start ${isLeft ? 'left' : 'right'}: Y=${relativeY.toFixed(2)}`);
 
             if (isLeft) {
                 touchControls.leftActive = true;
@@ -477,9 +500,11 @@
 
         function handleTouchMove(e, isLeft) {
             e.preventDefault();
+            e.stopPropagation();
+
             if ((isLeft && !touchControls.leftActive) || (!isLeft && !touchControls.rightActive)) return;
 
-            const touch = e.touches[0];
+            const touch = e.touches[0] || e.changedTouches[0];
             const rect = (isLeft ? touchLeftEl : touchRightEl).getBoundingClientRect();
             const relativeY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
 
@@ -492,6 +517,10 @@
 
         function handleTouchEnd(e, isLeft) {
             e.preventDefault();
+            e.stopPropagation();
+
+            console.log(`Touch end ${isLeft ? 'left' : 'right'}`);
+
             if (isLeft) {
                 touchControls.leftActive = false;
             } else {
@@ -499,15 +528,31 @@
             }
         }
 
-        // Left touch area events
-        touchLeftEl.addEventListener('touchstart', (e) => handleTouchStart(e, true), { passive: false });
-        touchLeftEl.addEventListener('touchmove', (e) => handleTouchMove(e, true), { passive: false });
-        touchLeftEl.addEventListener('touchend', (e) => handleTouchEnd(e, true), { passive: false });
+        // Initialize touch controls after DOM is loaded
+        function initTouchControls() {
+            if (!isMobileDevice()) {
+                console.log('Desktop detected, touch controls disabled');
+                return;
+            }
 
-        // Right touch area events
-        touchRightEl.addEventListener('touchstart', (e) => handleTouchStart(e, false), { passive: false });
-        touchRightEl.addEventListener('touchmove', (e) => handleTouchMove(e, false), { passive: false });
-        touchRightEl.addEventListener('touchend', (e) => handleTouchEnd(e, false), { passive: false });
+            // Show touch areas on mobile
+            touchLeftEl.style.display = 'block';
+            touchRightEl.style.display = 'block';
+
+            // Left touch area events
+            touchLeftEl.addEventListener('touchstart', (e) => handleTouchStart(e, true), { passive: false });
+            touchLeftEl.addEventListener('touchmove', (e) => handleTouchMove(e, true), { passive: false });
+            touchLeftEl.addEventListener('touchend', (e) => handleTouchEnd(e, true), { passive: false });
+            touchLeftEl.addEventListener('touchcancel', (e) => handleTouchEnd(e, true), { passive: false });
+
+            // Right touch area events
+            touchRightEl.addEventListener('touchstart', (e) => handleTouchStart(e, false), { passive: false });
+            touchRightEl.addEventListener('touchmove', (e) => handleTouchMove(e, false), { passive: false });
+            touchRightEl.addEventListener('touchend', (e) => handleTouchEnd(e, false), { passive: false });
+            touchRightEl.addEventListener('touchcancel', (e) => handleTouchEnd(e, false), { passive: false });
+
+            console.log('Touch controls initialized for mobile device');
+        }
 
         function updatePaddles() {
             // Keyboard controls
@@ -528,28 +573,22 @@
             if (touchControls.leftActive) {
                 const targetY = touchControls.leftY * (canvas.height - PADDLE_HEIGHT);
                 const diff = targetY - game.player1.y;
-                const moveSpeed = Math.min(PADDLE_SPEED * 2, Math.abs(diff));
+                const moveSpeed = Math.min(PADDLE_SPEED * 1.5, Math.abs(diff) * 0.1);
 
-                if (Math.abs(diff) > 2) {
-                    if (diff > 0) {
-                        game.player1.y = Math.min(canvas.height - PADDLE_HEIGHT, game.player1.y + moveSpeed);
-                    } else {
-                        game.player1.y = Math.max(0, game.player1.y - moveSpeed);
-                    }
+                if (Math.abs(diff) > 1) {
+                    game.player1.y = Math.max(0, Math.min(canvas.height - PADDLE_HEIGHT,
+                        game.player1.y + (diff > 0 ? moveSpeed : -moveSpeed)));
                 }
             }
 
             if (touchControls.rightActive) {
                 const targetY = touchControls.rightY * (canvas.height - PADDLE_HEIGHT);
                 const diff = targetY - game.player2.y;
-                const moveSpeed = Math.min(PADDLE_SPEED * 2, Math.abs(diff));
+                const moveSpeed = Math.min(PADDLE_SPEED * 1.5, Math.abs(diff) * 0.1);
 
-                if (Math.abs(diff) > 2) {
-                    if (diff > 0) {
-                        game.player2.y = Math.min(canvas.height - PADDLE_HEIGHT, game.player2.y + moveSpeed);
-                    } else {
-                        game.player2.y = Math.max(0, game.player2.y - moveSpeed);
-                    }
+                if (Math.abs(diff) > 1) {
+                    game.player2.y = Math.max(0, Math.min(canvas.height - PADDLE_HEIGHT,
+                        game.player2.y + (diff > 0 ? moveSpeed : -moveSpeed)));
                 }
             }
         }
@@ -810,6 +849,8 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // Initialize the game
+        initTouchControls();
         resetGame();
         gameLoop();
     </script>
