@@ -425,7 +425,9 @@
             leftActive: false,
             rightActive: false,
             leftY: 0,
-            rightY: 0
+            rightY: 0,
+            leftTouchId: null,
+            rightTouchId: null
         };
 
         // Mobile detection
@@ -478,53 +480,82 @@
             }
         });
 
-        // Touch event handlers
-        function handleTouchStart(e, isLeft) {
+
+        // Global touch event handlers for multi-touch support
+        function globalTouchStart(e) {
             e.preventDefault();
-            e.stopPropagation();
 
-            const touch = e.touches[0] || e.changedTouches[0];
-            const rect = (isLeft ? touchLeftEl : touchRightEl).getBoundingClientRect();
-            const relativeY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const leftRect = touchLeftEl.getBoundingClientRect();
+                const rightRect = touchRightEl.getBoundingClientRect();
 
-            console.log(`Touch start ${isLeft ? 'left' : 'right'}: Y=${relativeY.toFixed(2)}`);
+                // Check if touch is in left area and left paddle isn't already controlled
+                if (!touchControls.leftActive &&
+                    touch.clientX >= leftRect.left && touch.clientX <= leftRect.right &&
+                    touch.clientY >= leftRect.top && touch.clientY <= leftRect.bottom) {
 
-            if (isLeft) {
-                touchControls.leftActive = true;
-                touchControls.leftY = relativeY;
-            } else {
-                touchControls.rightActive = true;
-                touchControls.rightY = relativeY;
+                    const relativeY = Math.max(0, Math.min(1, (touch.clientY - leftRect.top) / leftRect.height));
+                    touchControls.leftActive = true;
+                    touchControls.leftY = relativeY;
+                    touchControls.leftTouchId = touch.identifier;
+                    console.log(`Left paddle touch start: Y=${relativeY.toFixed(2)}, ID=${touch.identifier}`);
+                }
+                // Check if touch is in right area and right paddle isn't already controlled
+                else if (!touchControls.rightActive &&
+                         touch.clientX >= rightRect.left && touch.clientX <= rightRect.right &&
+                         touch.clientY >= rightRect.top && touch.clientY <= rightRect.bottom) {
+
+                    const relativeY = Math.max(0, Math.min(1, (touch.clientY - rightRect.top) / rightRect.height));
+                    touchControls.rightActive = true;
+                    touchControls.rightY = relativeY;
+                    touchControls.rightTouchId = touch.identifier;
+                    console.log(`Right paddle touch start: Y=${relativeY.toFixed(2)}, ID=${touch.identifier}`);
+                }
             }
         }
 
-        function handleTouchMove(e, isLeft) {
+        function globalTouchMove(e) {
             e.preventDefault();
-            e.stopPropagation();
 
-            if ((isLeft && !touchControls.leftActive) || (!isLeft && !touchControls.rightActive)) return;
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
 
-            const touch = e.touches[0] || e.changedTouches[0];
-            const rect = (isLeft ? touchLeftEl : touchRightEl).getBoundingClientRect();
-            const relativeY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
+                // Update left paddle if this is its touch
+                if (touchControls.leftActive && touch.identifier === touchControls.leftTouchId) {
+                    const leftRect = touchLeftEl.getBoundingClientRect();
+                    const relativeY = Math.max(0, Math.min(1, (touch.clientY - leftRect.top) / leftRect.height));
+                    touchControls.leftY = relativeY;
+                }
 
-            if (isLeft) {
-                touchControls.leftY = relativeY;
-            } else {
-                touchControls.rightY = relativeY;
+                // Update right paddle if this is its touch
+                if (touchControls.rightActive && touch.identifier === touchControls.rightTouchId) {
+                    const rightRect = touchRightEl.getBoundingClientRect();
+                    const relativeY = Math.max(0, Math.min(1, (touch.clientY - rightRect.top) / rightRect.height));
+                    touchControls.rightY = relativeY;
+                }
             }
         }
 
-        function handleTouchEnd(e, isLeft) {
+        function globalTouchEnd(e) {
             e.preventDefault();
-            e.stopPropagation();
 
-            console.log(`Touch end ${isLeft ? 'left' : 'right'}`);
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
 
-            if (isLeft) {
-                touchControls.leftActive = false;
-            } else {
-                touchControls.rightActive = false;
+                // Check if left paddle's touch ended
+                if (touchControls.leftActive && touch.identifier === touchControls.leftTouchId) {
+                    touchControls.leftActive = false;
+                    touchControls.leftTouchId = null;
+                    console.log(`Left paddle touch end: ID=${touch.identifier}`);
+                }
+
+                // Check if right paddle's touch ended
+                if (touchControls.rightActive && touch.identifier === touchControls.rightTouchId) {
+                    touchControls.rightActive = false;
+                    touchControls.rightTouchId = null;
+                    console.log(`Right paddle touch end: ID=${touch.identifier}`);
+                }
             }
         }
 
@@ -539,19 +570,13 @@
             touchLeftEl.style.display = 'block';
             touchRightEl.style.display = 'block';
 
-            // Left touch area events
-            touchLeftEl.addEventListener('touchstart', (e) => handleTouchStart(e, true), { passive: false });
-            touchLeftEl.addEventListener('touchmove', (e) => handleTouchMove(e, true), { passive: false });
-            touchLeftEl.addEventListener('touchend', (e) => handleTouchEnd(e, true), { passive: false });
-            touchLeftEl.addEventListener('touchcancel', (e) => handleTouchEnd(e, true), { passive: false });
+            // Use global touch handlers on document for multi-touch support
+            document.addEventListener('touchstart', globalTouchStart, { passive: false });
+            document.addEventListener('touchmove', globalTouchMove, { passive: false });
+            document.addEventListener('touchend', globalTouchEnd, { passive: false });
+            document.addEventListener('touchcancel', globalTouchEnd, { passive: false });
 
-            // Right touch area events
-            touchRightEl.addEventListener('touchstart', (e) => handleTouchStart(e, false), { passive: false });
-            touchRightEl.addEventListener('touchmove', (e) => handleTouchMove(e, false), { passive: false });
-            touchRightEl.addEventListener('touchend', (e) => handleTouchEnd(e, false), { passive: false });
-            touchRightEl.addEventListener('touchcancel', (e) => handleTouchEnd(e, false), { passive: false });
-
-            console.log('Touch controls initialized for mobile device');
+            console.log('Multi-touch controls initialized for mobile device');
         }
 
         function updatePaddles() {
