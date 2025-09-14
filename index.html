@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pong Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
+    <title>FlaminPong</title>
     <style>
         body {
             margin: 0;
@@ -224,6 +224,129 @@
                 box-shadow: 0 0 50px rgba(255, 0, 0, 0.9);
             }
         }
+
+        /* Mobile touch areas */
+        .touch-area {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            display: none;
+            z-index: 100;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .touch-area-left {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 120px;
+            height: 300px;
+        }
+
+        .touch-area-right {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 120px;
+            height: 300px;
+        }
+
+        .touch-instructions {
+            display: none;
+            color: #fff;
+            text-align: center;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        /* Mobile responsive */
+        @media screen and (max-width: 1024px) and (orientation: landscape) {
+            body {
+                padding: 0;
+                margin: 0;
+                overflow: hidden;
+                -webkit-user-select: none;
+                -webkit-touch-callout: none;
+            }
+
+            .game-container {
+                position: relative;
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 0;
+                overflow: hidden;
+            }
+
+            .score {
+                font-size: 36px;
+                margin: 5px 0;
+            }
+
+            .timer {
+                font-size: 18px;
+                margin: 2px 0;
+            }
+
+            canvas {
+                max-width: calc(100vw - 280px);
+                max-height: calc(100vh - 120px);
+                width: auto;
+                height: auto;
+            }
+
+            .controls {
+                font-size: 12px;
+                margin: 5px 0;
+            }
+
+            .touch-area {
+                display: block;
+            }
+
+            .touch-instructions {
+                display: block;
+            }
+
+            .speed-warning {
+                font-size: 32px;
+                padding: 20px;
+            }
+
+            .warning-subtitle {
+                font-size: 18px;
+            }
+        }
+
+        @media screen and (max-width: 768px) and (orientation: landscape) {
+            .score {
+                font-size: 28px;
+            }
+
+            .timer {
+                font-size: 16px;
+            }
+
+            canvas {
+                max-width: calc(100vw - 240px);
+                max-height: calc(100vh - 100px);
+            }
+
+            .touch-area-left,
+            .touch-area-right {
+                width: 100px;
+                height: 250px;
+            }
+
+            .controls {
+                font-size: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -245,6 +368,9 @@
         <div class="controls">
             Player 1: W/S keys | Player 2: ↑/↓ keys
         </div>
+        <div class="touch-instructions">
+            Touch left/right areas to control paddles
+        </div>
         <div id="speedWarning" class="speed-warning" style="display: none;">
             SPEED BOOST!<br>
             <span class="warning-subtitle">Ball speed increasing!</span>
@@ -253,6 +379,10 @@
             Game Over!<br>
             <button class="restart-btn" onclick="resetGame()">Play Again</button>
         </div>
+
+        <!-- Touch areas for mobile -->
+        <div class="touch-area touch-area-left" id="touchLeft"></div>
+        <div class="touch-area touch-area-right" id="touchRight"></div>
     </div>
 
     <script>
@@ -263,6 +393,8 @@
         const gameOverEl = document.getElementById('gameOver');
         const gameTimerEl = document.getElementById('gameTimer');
         const speedWarningEl = document.getElementById('speedWarning');
+        const touchLeftEl = document.getElementById('touchLeft');
+        const touchRightEl = document.getElementById('touchRight');
 
         const PADDLE_WIDTH = 10;
         const PADDLE_HEIGHT = 80;
@@ -276,6 +408,14 @@
         let ballSpeedMultiplier = 1;
         let pulsePhase = 0;
         let speedWarningShown = false;
+
+        // Touch control variables
+        let touchControls = {
+            leftActive: false,
+            rightActive: false,
+            leftY: 0,
+            rightY: 0
+        };
 
         let flameParticles = [];
 
@@ -319,7 +459,58 @@
             }
         });
 
+        // Touch event handlers
+        function handleTouchStart(e, isLeft) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = (isLeft ? touchLeftEl : touchRightEl).getBoundingClientRect();
+            const relativeY = (touch.clientY - rect.top) / rect.height;
+
+            if (isLeft) {
+                touchControls.leftActive = true;
+                touchControls.leftY = relativeY;
+            } else {
+                touchControls.rightActive = true;
+                touchControls.rightY = relativeY;
+            }
+        }
+
+        function handleTouchMove(e, isLeft) {
+            e.preventDefault();
+            if ((isLeft && !touchControls.leftActive) || (!isLeft && !touchControls.rightActive)) return;
+
+            const touch = e.touches[0];
+            const rect = (isLeft ? touchLeftEl : touchRightEl).getBoundingClientRect();
+            const relativeY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / rect.height));
+
+            if (isLeft) {
+                touchControls.leftY = relativeY;
+            } else {
+                touchControls.rightY = relativeY;
+            }
+        }
+
+        function handleTouchEnd(e, isLeft) {
+            e.preventDefault();
+            if (isLeft) {
+                touchControls.leftActive = false;
+            } else {
+                touchControls.rightActive = false;
+            }
+        }
+
+        // Left touch area events
+        touchLeftEl.addEventListener('touchstart', (e) => handleTouchStart(e, true), { passive: false });
+        touchLeftEl.addEventListener('touchmove', (e) => handleTouchMove(e, true), { passive: false });
+        touchLeftEl.addEventListener('touchend', (e) => handleTouchEnd(e, true), { passive: false });
+
+        // Right touch area events
+        touchRightEl.addEventListener('touchstart', (e) => handleTouchStart(e, false), { passive: false });
+        touchRightEl.addEventListener('touchmove', (e) => handleTouchMove(e, false), { passive: false });
+        touchRightEl.addEventListener('touchend', (e) => handleTouchEnd(e, false), { passive: false });
+
         function updatePaddles() {
+            // Keyboard controls
             if (keys.w && game.player1.y > 0) {
                 game.player1.y -= PADDLE_SPEED;
             }
@@ -331,6 +522,35 @@
             }
             if (keys.ArrowDown && game.player2.y < canvas.height - PADDLE_HEIGHT) {
                 game.player2.y += PADDLE_SPEED;
+            }
+
+            // Touch controls
+            if (touchControls.leftActive) {
+                const targetY = touchControls.leftY * (canvas.height - PADDLE_HEIGHT);
+                const diff = targetY - game.player1.y;
+                const moveSpeed = Math.min(PADDLE_SPEED * 2, Math.abs(diff));
+
+                if (Math.abs(diff) > 2) {
+                    if (diff > 0) {
+                        game.player1.y = Math.min(canvas.height - PADDLE_HEIGHT, game.player1.y + moveSpeed);
+                    } else {
+                        game.player1.y = Math.max(0, game.player1.y - moveSpeed);
+                    }
+                }
+            }
+
+            if (touchControls.rightActive) {
+                const targetY = touchControls.rightY * (canvas.height - PADDLE_HEIGHT);
+                const diff = targetY - game.player2.y;
+                const moveSpeed = Math.min(PADDLE_SPEED * 2, Math.abs(diff));
+
+                if (Math.abs(diff) > 2) {
+                    if (diff > 0) {
+                        game.player2.y = Math.min(canvas.height - PADDLE_HEIGHT, game.player2.y + moveSpeed);
+                    } else {
+                        game.player2.y = Math.max(0, game.player2.y - moveSpeed);
+                    }
+                }
             }
         }
 
