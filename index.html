@@ -169,6 +169,17 @@
                 opacity: 0.3;
             }
         }
+
+        /* Stone texture for paddles */
+        .stone-paddle {
+            background:
+                radial-gradient(circle at 20% 20%, rgba(180, 180, 180, 0.3) 1px, transparent 1px),
+                radial-gradient(circle at 60% 40%, rgba(220, 220, 220, 0.4) 1px, transparent 1px),
+                radial-gradient(circle at 80% 80%, rgba(160, 160, 160, 0.2) 1px, transparent 1px),
+                radial-gradient(circle at 30% 70%, rgba(200, 200, 200, 0.3) 1px, transparent 1px),
+                linear-gradient(45deg, #666666 0%, #888888 25%, #777777 50%, #999999 75%, #666666 100%);
+            background-size: 5px 5px, 3px 3px, 4px 4px, 6px 6px, 100% 100%;
+        }
     </style>
 </head>
 <body>
@@ -400,14 +411,47 @@
             player2ScoreEl.textContent = game.player2.score;
         }
 
+        function drawStonePaddle(x, y, width, height) {
+            // Base stone color
+            ctx.fillStyle = '#777777';
+            ctx.fillRect(x, y, width, height);
+
+            // Add stone texture with random dots and variations
+            for (let i = 0; i < 15; i++) {
+                const dotX = x + Math.random() * width;
+                const dotY = y + Math.random() * height;
+                const dotSize = Math.random() * 2 + 0.5;
+                const opacity = Math.random() * 0.4 + 0.2;
+
+                ctx.fillStyle = `rgba(${160 + Math.random() * 60}, ${160 + Math.random() * 60}, ${160 + Math.random() * 60}, ${opacity})`;
+                ctx.beginPath();
+                ctx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Add highlight and shadow for depth
+            const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+            gradient.addColorStop(0, 'rgba(200, 200, 200, 0.3)');
+            gradient.addColorStop(0.5, 'rgba(150, 150, 150, 0.1)');
+            gradient.addColorStop(1, 'rgba(100, 100, 100, 0.2)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, width, height);
+
+            // Add border for definition
+            ctx.strokeStyle = 'rgba(120, 120, 120, 0.8)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, width, height);
+        }
+
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             drawFlames();
 
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(game.player1.x, game.player1.y, PADDLE_WIDTH, PADDLE_HEIGHT);
-            ctx.fillRect(game.player2.x, game.player2.y, PADDLE_WIDTH, PADDLE_HEIGHT);
+            // Draw stone-textured paddles
+            drawStonePaddle(game.player1.x, game.player1.y, PADDLE_WIDTH, PADDLE_HEIGHT);
+            drawStonePaddle(game.player2.x, game.player2.y, PADDLE_WIDTH, PADDLE_HEIGHT);
             
             const currentTime = Date.now();
             const timeElapsed = (currentTime - gameStartTime) / 1000;
