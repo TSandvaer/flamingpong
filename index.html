@@ -180,6 +180,50 @@
                 linear-gradient(45deg, #666666 0%, #888888 25%, #777777 50%, #999999 75%, #666666 100%);
             background-size: 5px 5px, 3px 3px, 4px 4px, 6px 6px, 100% 100%;
         }
+
+        .timer {
+            color: #fff;
+            font-size: 24px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        .speed-warning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 1000;
+            background: rgba(255, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            border: 3px solid #fff;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
+            animation: pulseWarning 0.5s ease-in-out infinite alternate;
+        }
+
+        .warning-subtitle {
+            font-size: 24px;
+            display: block;
+            margin-top: 10px;
+            color: #ffff00;
+        }
+
+        @keyframes pulseWarning {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1.05);
+                box-shadow: 0 0 50px rgba(255, 0, 0, 0.9);
+            }
+        }
     </style>
 </head>
 <body>
@@ -196,9 +240,14 @@
         <div class="score">
             <span id="player1Score">0</span> - <span id="player2Score">0</span>
         </div>
+        <div class="timer" id="gameTimer">00:00</div>
         <canvas id="gameCanvas" width="800" height="400"></canvas>
         <div class="controls">
             Player 1: W/S keys | Player 2: ↑/↓ keys
+        </div>
+        <div id="speedWarning" class="speed-warning" style="display: none;">
+            SPEED BOOST!<br>
+            <span class="warning-subtitle">Ball speed increasing!</span>
         </div>
         <div id="gameOver" class="game-over" style="display: none;">
             Game Over!<br>
@@ -212,6 +261,8 @@
         const player1ScoreEl = document.getElementById('player1Score');
         const player2ScoreEl = document.getElementById('player2Score');
         const gameOverEl = document.getElementById('gameOver');
+        const gameTimerEl = document.getElementById('gameTimer');
+        const speedWarningEl = document.getElementById('speedWarning');
 
         const PADDLE_WIDTH = 10;
         const PADDLE_HEIGHT = 80;
@@ -224,6 +275,7 @@
         let gameStartTime = Date.now();
         let ballSpeedMultiplier = 1;
         let pulsePhase = 0;
+        let speedWarningShown = false;
 
         let flameParticles = [];
 
@@ -283,19 +335,21 @@
         }
 
         function createFlameParticle(x, y) {
+            const intensityMultiplier = Math.max(1, ballSpeedMultiplier);
             return {
-                x: x + Math.random() * BALL_SIZE,
-                y: y + Math.random() * BALL_SIZE,
-                size: Math.random() * 3 + 1,
-                life: 20 + Math.random() * 20,
-                maxLife: 40,
-                dx: (Math.random() - 0.5) * 2,
-                dy: (Math.random() - 0.5) * 2
+                x: x + Math.random() * BALL_SIZE * intensityMultiplier,
+                y: y + Math.random() * BALL_SIZE * intensityMultiplier,
+                size: (Math.random() * 3 + 1) * intensityMultiplier,
+                life: (20 + Math.random() * 20) * intensityMultiplier,
+                maxLife: 40 * intensityMultiplier,
+                dx: (Math.random() - 0.5) * 2 * intensityMultiplier,
+                dy: (Math.random() - 0.5) * 2 * intensityMultiplier
             };
         }
 
         function updateFlames() {
-            for (let i = 0; i < 3; i++) {
+            const particleCount = Math.floor(3 * Math.max(1, ballSpeedMultiplier));
+            for (let i = 0; i < particleCount; i++) {
                 flameParticles.push(createFlameParticle(game.ball.x, game.ball.y));
             }
 
@@ -347,7 +401,21 @@
         function updateBall() {
             const currentTime = Date.now();
             const timeElapsed = (currentTime - gameStartTime) / 1000;
-            
+
+            // Update timer display
+            const minutes = Math.floor(timeElapsed / 60);
+            const seconds = Math.floor(timeElapsed % 60);
+            gameTimerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            // Show speed warning at 30 seconds
+            if (timeElapsed >= 29.5 && timeElapsed < 30 && !speedWarningShown) {
+                speedWarningEl.style.display = 'block';
+                speedWarningShown = true;
+                setTimeout(() => {
+                    speedWarningEl.style.display = 'none';
+                }, 2000);
+            }
+
             if (timeElapsed >= 30) {
                 const timeAfter30 = timeElapsed - 30;
                 ballSpeedMultiplier = Math.min(1 + timeAfter30 * 0.02, 2);
@@ -504,10 +572,13 @@
             gameStartTime = Date.now();
             ballSpeedMultiplier = 1;
             pulsePhase = 0;
+            speedWarningShown = false;
             resetBall();
             updateScore();
             gameRunning = true;
             gameOverEl.style.display = 'none';
+            speedWarningEl.style.display = 'none';
+            gameTimerEl.textContent = '00:00';
         }
 
         function gameLoop() {
